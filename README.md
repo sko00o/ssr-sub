@@ -2,7 +2,7 @@
 
 A command-line tool for subscribe ssr config.
 
-## insatall
+## install
 
 ```sh
 # sudo pacman -S go
