@@ -119,7 +119,7 @@ func decodeURI(uri string) (*Config, error) {
 	}
 	i = strings.Index(s, "/")
 	if i > -1 {
-		c.Password = s[:i]
+		c.Password = base64Decode(s[:i])
 		s = s[i+1:]
 	}
 
@@ -127,25 +127,20 @@ func decodeURI(uri string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	c.OBFSParam = u.Query().Get("obfsparam")
-	c.ProtocolParam = u.Query().Get("protoparam")
-
-	c.Remarks = u.Query().Get("remarks")
-	if c.Remarks != "" {
-		b, err := base64.RawURLEncoding.DecodeString(c.Remarks)
-		if err == nil {
-			c.Remarks = string(b)
-		}
-	}
-
-	c.Group = u.Query().Get("group")
-	if c.Group != "" {
-		b, err := base64.RawURLEncoding.DecodeString(c.Group)
-		if err == nil {
-			c.Group = string(b)
-		}
-	}
+	c.OBFSParam = base64Decode(u.Query().Get("obfsparam"))
+	c.ProtocolParam = base64Decode(u.Query().Get("protoparam"))
+	c.Remarks = base64Decode(u.Query().Get("remarks"))
+	c.Group = base64Decode(u.Query().Get("group"))
 
 	return c, nil
+}
+
+func base64Decode(in string) string {
+	if in != "" {
+		b, err := base64.RawURLEncoding.DecodeString(in)
+		if err == nil {
+			in = string(b)
+		}
+	}
+	return in
 }
