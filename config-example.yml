@@ -1,0 +1,11 @@
+url:
+  - <your-ssr-subscriber-url>
+
+file:
+  - <you-local-ssr-subscriber-file-base64-encoded>
+
+check:
+  timeout: 3s
+  not: 免费|普通|回国|过期|Lv.1|请加|剩余
+
+output: <output-directory>

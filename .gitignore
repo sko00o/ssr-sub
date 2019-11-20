@@ -1,0 +1,7 @@
+/*.txt
+.idea
+Thumbs.db
+.DS*
+*.pb.go
+/*.json
+/config.yml
