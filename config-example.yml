@@ -6,6 +6,6 @@ file:
 
 check:
   timeout: 3s
-  not: 免费|普通|回国|过期|Lv.1|请加|剩余
+  not: 免费|普通|回国|过期|剩余
 
 output: <output-directory>
