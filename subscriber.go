@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+// Config set for ssr config
 type Config struct {
 	Server        string `json:"server"`
 	ServerPort    int    `json:"server_port"`
@@ -24,37 +25,47 @@ type Config struct {
 	Group         string `json:"group"`
 }
 
-func FromUrl(url string) ([]*Config, error) {
-	if response, err := http.Get(url); err != nil || response.StatusCode != http.StatusOK {
+// FromURL fetch and parse configs from url
+func FromURL(url string) ([]*Config, error) {
+	response, err := http.Get(url)
+
+	if err != nil || response.StatusCode != http.StatusOK {
 		return nil, errors.New("request subscribe url error")
-	} else {
-		return FromReader(response.Body)
 	}
+
+	return FromReader(response.Body)
 }
 
+// FromFile parse configs from local base64-hashed file
 func FromFile(path string) ([]*Config, error) {
 	stat, err := os.Stat(path)
 	if err != nil || !stat.Mode().IsRegular() {
 		return nil, errors.New("not a regular file")
 	}
 
-	if f, err := os.OpenFile(path, os.O_RDONLY, os.ModeTemporary); err != nil {
+	fd, err := os.OpenFile(path, os.O_RDONLY, os.ModeTemporary)
+
+	if err != nil {
 		return nil, err
-	} else {
-		defer f.Close()
-		return FromReader(bufio.NewReader(f))
 	}
+
+	defer fd.Close()
+	return FromReader(bufio.NewReader(fd))
 }
 
-func FromReader(r io.Reader) ([]*Config, error) {
-	reader := base64.NewDecoder(base64.RawStdEncoding, r)
-	if data, err := ioutil.ReadAll(reader); err != nil || len(data) <= 0 {
-		return nil, err
-	} else {
-		return Decode(string(data))
-	}
-}
-
+// FromString parse from string
 func FromString(data string) ([]*Config, error) {
 	return FromReader(strings.NewReader(data))
+}
+
+// FromReader from steam reader
+func FromReader(r io.Reader) ([]*Config, error) {
+	reader := base64.NewDecoder(base64.RawStdEncoding, r)
+	data, err := ioutil.ReadAll(reader)
+
+	if err != nil || len(data) <= 0 {
+		return nil, err
+	}
+
+	return Decode(string(data))
 }
