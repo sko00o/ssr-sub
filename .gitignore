@@ -5,3 +5,5 @@ Thumbs.db
 *.pb.go
 /*.json
 /config.yml
+/json
+/ssr-subscriber.yaml

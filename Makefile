@@ -8,4 +8,4 @@ build: clean
 		@go build -o ssr-subscriber ./cmd/main.go
 
 clean:
-	@git clean -f -d -X && rm -f ./ssr-subscriber
+	@rm -f ./ssr-subscriber
