@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	subscriber "github.com/mingcheng/ssr-subscriber"
 	"io/ioutil"
 	"log"
 	"net"
@@ -12,7 +13,6 @@ import (
 	"regexp"
 	"time"
 
-	subscriber "github.com/mingcheng/ssr-subscriber.go"
 	"gopkg.in/yaml.v2"
 )
 
@@ -23,6 +23,7 @@ type Configure struct {
 	URL    []string `yaml:"url"`
 	File   []string `yaml:"file"`
 	Output string   `yaml:"output"`
+	Proxy  string   `yaml:"proxy"`
 	Check  check    `yaml:"check"`
 }
 
@@ -83,7 +84,7 @@ func main() {
 	}
 
 	if stat, err := os.Stat(configure.Output); err != nil || !stat.IsDir() {
-		log.Fatal()
+		log.Fatal(err)
 	}
 
 	var configNodes []*subscriber.Config
@@ -93,7 +94,7 @@ func main() {
 		if _, err := os.Stat(o); os.IsExist(err) {
 			nodes, _ = subscriber.FromFile(o)
 		} else {
-			nodes, _ = subscriber.FromURL(o)
+			nodes, _ = subscriber.FromURL(o, configure.Proxy)
 		}
 
 		configNodes = append(configNodes, nodes...)

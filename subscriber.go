@@ -2,13 +2,18 @@ package subscriber
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"errors"
+	"golang.org/x/net/proxy"
 	"io"
 	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // Config set for ssr config
@@ -26,8 +31,24 @@ type Config struct {
 }
 
 // FromURL fetch and parse configs from url
-func FromURL(url string) ([]*Config, error) {
-	response, err := http.Get(url)
+func FromURL(url string, proxyString string) ([]*Config, error) {
+	httpTransport := &http.Transport{}
+	client := &http.Client{Transport: httpTransport, Timeout: 5 * time.Second}
+
+	if len(proxyString) > 0 {
+		log.Printf("Using socks5 proxy address %s", proxyString)
+		dialer, err := proxy.SOCKS5("tcp", proxyString, nil, proxy.Direct)
+		if err != nil {
+			return nil, err
+		}
+
+		httpTransport.DialContext = func(ctx context.Context, network, addr string) (conn net.Conn, e error) {
+			return dialer.Dial(network, addr)
+		}
+	}
+
+	// Do requests
+	response, err := client.Get(url)
 
 	if err != nil || response.StatusCode != http.StatusOK {
 		return nil, errors.New("request subscribe url error")
