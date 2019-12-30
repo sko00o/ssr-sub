@@ -27,9 +27,11 @@ check:
   not: 免费|普通|回国|过期|剩余
 
 output: <output-directory>
+
+proxy: localhost:1088
 ```
 
-其中，`check` 字段中 `timeout` 为检查对应 ssr 节点的主机和端口超时时间，`not` 字段为过滤和忽略 `Remarks` 中包含对应的字符串（支持正则表达式）。
+其中，`check` 字段中 `timeout` 为检查对应 ssr 节点的主机和端口超时时间，`not` 字段为过滤和忽略 `Remarks` 中包含对应的字符串（支持正则表达式）。`proxy` 字段支持 socks5 的代理地址，~~强烈建议使用代理请求数据~~。
 
 ## 整合
 
