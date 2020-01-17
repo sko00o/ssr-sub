@@ -5,15 +5,18 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"golang.org/x/net/proxy"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
+
+	"golang.org/x/net/proxy"
 )
 
 // Config set for ssr config
@@ -28,6 +31,33 @@ type Config struct {
 	Password      string `json:"password"`
 	Remarks       string `json:"remarks"`
 	Group         string `json:"group"`
+}
+
+// CheckConfig for CheckNode usage
+type CheckConfig struct {
+	Timeout string `yaml:"timeout"`
+	Not     string `yaml:"not"`
+}
+
+// CheckNode for check ssr config server available
+func CheckNode(node *Config, c CheckConfig) bool {
+	if matched, _ := regexp.MatchString(c.Not, node.Remarks); matched {
+		log.Printf("remarks %s not allowed, ignore", node.Remarks)
+		return false
+	}
+
+	if duration, err := time.ParseDuration(c.Timeout); err != nil {
+		log.Fatalln(err)
+	} else {
+		_, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", node.Server, node.ServerPort), duration)
+		if err != nil {
+			log.Printf("check %s:%d, failed", node.Server, node.ServerPort)
+			return false
+		}
+	}
+
+	log.Printf("check %s:%d, passed", node.Server, node.ServerPort)
+	return true
 }
 
 // FromURL fetch and parse configs from url
