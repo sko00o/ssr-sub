@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	subscriber "github.com/mingcheng/ssr-subscriber"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
-	"regexp"
-	"time"
 
+	subscriber "github.com/mingcheng/ssr-subscriber"
 	"gopkg.in/yaml.v2"
 )
 
@@ -20,37 +17,11 @@ var configFile string
 
 // Configure struct, for more information see config-example.yaml file
 type Configure struct {
-	URL    []string `yaml:"url"`
-	File   []string `yaml:"file"`
-	Output string   `yaml:"output"`
-	Proxy  string   `yaml:"proxy"`
-	Check  check    `yaml:"check"`
-}
-
-type check struct {
-	Timeout string `yaml:"timeout"`
-	Not     string `yaml:"not"`
-}
-
-// checkNode for check ssr config server available
-func checkNode(node *subscriber.Config, c check) bool {
-	if matched, _ := regexp.MatchString(c.Not, node.Remarks); matched {
-		log.Printf("remarks %s not allowed, ignore", node.Remarks)
-		return false
-	}
-
-	if duration, err := time.ParseDuration(c.Timeout); err != nil {
-		log.Fatalln(err)
-	} else {
-		_, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", node.Server, node.ServerPort), duration)
-		if err != nil {
-			log.Printf("check %s:%d, failed", node.Server, node.ServerPort)
-			return false
-		}
-	}
-
-	log.Printf("check %s:%d, passed", node.Server, node.ServerPort)
-	return true
+	URL    []string               `yaml:"url"`
+	File   []string               `yaml:"file"`
+	Output string                 `yaml:"output"`
+	Proxy  string                 `yaml:"proxy"`
+	Check  subscriber.CheckConfig `yaml:"check"`
 }
 
 // saveConfigToFile for save config to JSON format file
@@ -105,7 +76,7 @@ func main() {
 	}
 
 	for _, node := range configNodes {
-		if checkNode(node, configure.Check) {
+		if subscriber.CheckNode(node, configure.Check) {
 			_ = saveConfigToFile(node, configure.Output)
 		}
 	}
