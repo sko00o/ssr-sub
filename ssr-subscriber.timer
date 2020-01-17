@@ -1,0 +1,11 @@
+[Unit]
+Description=update SSR configures every 12hours
+# After=network-online.target
+
+[Timer]
+OnUnitActiveSec=12h
+Unit=ssr-subscriber.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target network-online.target
