@@ -13,7 +13,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var configFile string
+var (
+	configFile string
+	checkOnly  bool
+)
 
 // Configure struct, for more information see config-example.yaml file
 type Configure struct {
@@ -40,10 +43,12 @@ func saveConfigToFile(config *subscriber.Config, dir string) error {
 
 func init() {
 	flag.StringVar(&configFile, "c", "", "subscribe configure file")
-	flag.Parse()
+	flag.BoolVar(&checkOnly, "check-only", false, "just check only")
 }
 
 func main() {
+	flag.Parse()
+
 	yamlFile, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		log.Fatalln(err)
@@ -63,8 +68,10 @@ func main() {
 	for _, o := range append(configure.URL, configure.File...) {
 		var nodes []*subscriber.Config
 		if _, err := os.Stat(o); os.IsExist(err) {
+			log.Printf("get ssr configure from file %v", o)
 			nodes, _ = subscriber.FromFile(o)
 		} else {
+			log.Printf("get ssr configure from url %v", o)
 			nodes, _ = subscriber.FromURL(o, configure.Proxy)
 		}
 
@@ -76,8 +83,12 @@ func main() {
 	}
 
 	for _, node := range configNodes {
-		if subscriber.CheckNode(node, configure.Check) {
+		if subscriber.CheckNode(node, configure.Check) && !checkOnly {
 			_ = saveConfigToFile(node, configure.Output)
+		}
+
+		if checkOnly {
+			log.Printf("Check only, don't save to file, for %s:%d", node.Server, node.ServerPort)
 		}
 	}
 }
