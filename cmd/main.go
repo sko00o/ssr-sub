@@ -1,83 +1,108 @@
 package main
 
 import (
-	"crypto/md5"
-	"encoding/json"
-	"flag"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
+  "flag"
+  "fmt"
+  subscriber "github.com/mingcheng/ssr-subscriber"
+  "io/ioutil"
+  "log"
+  "os"
+  "time"
 
-	subscriber "github.com/mingcheng/ssr-subscriber"
-	"gopkg.in/yaml.v2"
+  "github.com/kataras/iris/v12"
+  "gopkg.in/yaml.v2"
 )
 
-var configFile string
+var (
+  configFile string
+  configure  = Configure{}
 
-// Configure struct, for more information see config-example.yaml file
-type Configure struct {
-	URL    []string               `yaml:"url"`
-	File   []string               `yaml:"file"`
-	Output string                 `yaml:"output"`
-	Proxy  string                 `yaml:"proxy"`
-	Check  subscriber.CheckConfig `yaml:"check"`
-}
+  httpMode bool
+  err      error
 
-// saveConfigToFile for save config to JSON format file
-func saveConfigToFile(config *subscriber.Config, dir string) error {
-	address := fmt.Sprintf("%s:%d", config.Server, config.ServerPort)
-	name := fmt.Sprintf("%x", md5.Sum([]byte(address)))
-	fileName := fmt.Sprintf("%s%c%s.json", dir, os.PathSeparator, name)
-	bs, _ := json.MarshalIndent(config, "", " ")
-	if err := ioutil.WriteFile(fileName, bs, 0644); err != nil {
-		return err
-	}
-
-	log.Printf("saved to %s\n", fileName)
-	return nil
-}
+  CheckedConfig []*subscriber.Config
+  LastCheckTime time.Time
+)
 
 func init() {
-	flag.StringVar(&configFile, "c", "", "subscribe configure file")
-	flag.Parse()
+  flag.StringVar(&configFile, "config", "/etc/ssr-subscriber.yml", "subscribe configure file")
+  flag.BoolVar(&httpMode, "http", false, "start http listen mode")
+
+  flag.Parse()
 }
 
 func main() {
-	yamlFile, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		log.Fatalln(err)
-	}
+  // read configure from config file
+  if yamlFile, err := ioutil.ReadFile(configFile); err != nil {
+    log.Fatalln(err)
+  } else {
+    if err := yaml.Unmarshal(yamlFile, &configure); err != nil {
+      log.Fatalln(err)
+    }
+  }
 
-	configure := Configure{}
-	if err := yaml.Unmarshal(yamlFile, &configure); err != nil {
-		log.Fatalln(err)
-	}
+  // check output directory
+  if stat, err := os.Stat(configure.Output); err != nil || !stat.IsDir() {
+    log.Fatal(err)
+  }
 
-	if stat, err := os.Stat(configure.Output); err != nil || !stat.IsDir() {
-		log.Fatal(err)
-	}
+  CheckedConfig, err = fetchAndCheck()
+  if err != nil {
+    log.Fatal(err)
+  }
 
-	var configNodes []*subscriber.Config
+  if httpMode {
+    ticker := time.NewTicker(time.Duration(configure.Interval) * time.Hour)
+    go func() {
+      for {
+        select {
+        case <-ticker.C:
+          if CheckedConfig, err = fetchAndCheck(); err != nil {
+            _, _ = fmt.Fprint(os.Stderr, err.Error())
+          }
+        }
+      }
+    }()
 
-	for _, o := range append(configure.URL, configure.File...) {
-		var nodes []*subscriber.Config
-		if _, err := os.Stat(o); os.IsExist(err) {
-			nodes, _ = subscriber.FromFile(o)
-		} else {
-			nodes, _ = subscriber.FromURL(o, configure.Proxy)
-		}
+    // start web server
+    app := iris.New()
 
-		configNodes = append(configNodes, nodes...)
-	}
+    app.Handle("GET", "/", func(ctx iris.Context) {
+      ctx.Header("Last-Check", LastCheckTime.String())
+      if len(CheckedConfig) > 0 {
+        _, _ = ctx.JSON(CheckedConfig)
+      } else {
+        ctx.NotFound()
+      }
+    })
 
-	if len(configNodes) <= 0 {
-		log.Fatalln("can not get any configure nodes")
-	}
+    app.Handle("GET", "/config", func(ctx iris.Context) {
+      _, _ = ctx.JSON(configure)
+    })
 
-	for _, node := range configNodes {
-		if subscriber.CheckNode(node, configure.Check) {
-			_ = saveConfigToFile(node, configure.Output)
-		}
-	}
+    app.Handle("GET", "/last-check", func(ctx iris.Context) {
+      _, _ = ctx.WriteString(LastCheckTime.String())
+    })
+
+    err = app.Run(iris.Addr(configure.Bind))
+  }
+}
+
+func fetchAndCheck() ([]*subscriber.Config, error) {
+  var (
+    configs []*subscriber.Config
+    err     error
+  )
+
+  //sync.RWMutex{} todo
+
+  // do not bind listen address one-shot only
+  if configs, err = fetchNodes(append(configure.URL, configure.File...)); err == nil {
+    if configs, err = checkAndSaveConfigs(configs, configure.Check, configure.Output); err == nil {
+      defer cleanExceedConfig(configure.Output, time.Duration(configure.Exceed)*(time.Hour*24))
+    }
+  }
+
+  LastCheckTime = time.Now()
+  return configs, err
 }
