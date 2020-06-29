@@ -41,6 +41,8 @@ func main() {
     }
   }
 
+  fmt.Printf("%v", configure)
+
   // check output directory
   if stat, err := os.Stat(configure.Output); err != nil || !stat.IsDir() {
     log.Fatal(err)
@@ -97,10 +99,18 @@ func fetchAndCheck() ([]*subscriber.Config, error) {
   //sync.RWMutex{} todo
 
   // do not bind listen address one-shot only
-  if configs, err = fetchNodes(append(configure.URL, configure.File...)); err == nil {
-    if configs, err = checkAndSaveConfigs(configs, configure.Check, configure.Output); err == nil {
-      defer cleanExceedConfig(configure.Output, time.Duration(configure.Exceed)*(time.Hour*24))
-    }
+  configs, err = fetchNodes(append(configure.URL, configure.File...))
+  if err != nil {
+    return nil, err
+  }
+
+  configs, err = checkAndSaveConfigs(configs, configure.Check, configure.Output)
+  if err != nil {
+    return nil, err
+  }
+
+  if configure.AutoClean {
+    defer cleanExceedConfig(configure.Output, time.Duration(configure.Exceed)*(time.Hour*24))
   }
 
   LastCheckTime = time.Now()
