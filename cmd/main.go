@@ -3,13 +3,13 @@ package main
 import (
   "flag"
   "fmt"
+  "github.com/kataras/iris/v12"
   subscriber "github.com/mingcheng/ssr-subscriber"
   "io/ioutil"
   "log"
   "os"
   "time"
 
-  "github.com/kataras/iris/v12"
   "gopkg.in/yaml.v2"
 )
 
@@ -90,13 +90,13 @@ func main() {
   }
 }
 
+// fetchAndCheck that fetch configs from subscriber url or file, then check its health
 func fetchAndCheck() ([]*subscriber.Config, error) {
+  // TODO sync.RWMutex{}
   var (
     configs []*subscriber.Config
     err     error
   )
-
-  //sync.RWMutex{} todo
 
   // do not bind listen address one-shot only
   configs, err = fetchNodes(append(configure.URL, configure.File...))

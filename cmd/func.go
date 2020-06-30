@@ -8,13 +8,24 @@ import (
   "io/ioutil"
   "log"
   "os"
+  "path/filepath"
+  "syscall"
   "time"
 )
 
 // cleanExceedConfig to clean outdated configure file in specified directory
-func cleanExceedConfig(dir string, duration time.Duration) (uint, error) {
-  // TODO
-  return 0, nil
+func cleanExceedConfig(dir string, duration time.Duration) error {
+  return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+    var returnError error
+
+    //&& time.Now().Sub(info.ModTime()) < duration
+    if !info.IsDir() && filepath.Ext(path) == ".json" && time.Now().Sub(info.ModTime()) > duration {
+      // remove(unlink) configure file if outdated
+      returnError = syscall.Unlink(path)
+    }
+
+    return returnError
+  })
 }
 
 // saveConfigToFile for save config to JSON format file
