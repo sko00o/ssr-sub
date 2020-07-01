@@ -7,3 +7,5 @@ Thumbs.db
 /config.yml
 /json
 /ssr-subscriber.yaml
+/*.exe
+/configs
