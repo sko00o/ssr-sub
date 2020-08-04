@@ -13,7 +13,6 @@ import (
   "net/http"
   "os"
   "regexp"
-  "strings"
   "time"
 
   "golang.org/x/net/proxy"
@@ -84,7 +83,11 @@ func FromURL(url string, proxyString string) ([]*Config, error) {
     return nil, errors.New("request subscribe url error")
   }
 
-  return FromReader(response.Body)
+  if data, err := ioutil.ReadAll(response.Body); err != nil {
+    return nil, err
+  } else {
+    return FromBytes(data)
+  }
 }
 
 // FromFile parse configs from local base64-hashed file
@@ -106,17 +109,33 @@ func FromFile(path string) ([]*Config, error) {
 
 // FromString parse from string
 func FromString(data string) ([]*Config, error) {
-  return FromReader(strings.NewReader(data))
+  var (
+    err     error
+    decoded []byte
+  )
+
+  if decoded, err = base64.StdEncoding.DecodeString(data); err != nil {
+    decoded, err = base64.RawStdEncoding.DecodeString(data)
+  }
+
+  if err != nil || len(decoded) <= 0 {
+    return nil, err
+  }
+
+  return Decode(string(decoded))
 }
 
 // FromReader from steam reader
 func FromReader(r io.Reader) ([]*Config, error) {
-  reader := base64.NewDecoder(base64.RawStdEncoding, r)
-  data, err := ioutil.ReadAll(reader)
-
-  if err != nil || len(data) <= 0 {
+  data, err := ioutil.ReadAll(r)
+  if err != nil {
     return nil, err
   }
 
-  return Decode(string(data))
+  return FromBytes(data)
+}
+
+// FromBytes get configs from bytes array
+func FromBytes(data []byte) ([]*Config, error) {
+  return FromString(string(data))
 }
