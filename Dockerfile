@@ -1,4 +1,4 @@
-FROM golang:1.14.4 AS builder
+FROM golang:1.14.7-buster AS builder
 LABEL maintainer="Ming Chen"
 
 ENV PACKAGE github.com/mingcheng/ssr-subscriber
@@ -27,6 +27,9 @@ FROM centos:8
 RUN dnf install ca-certificates -y
 
 COPY --from=builder /usr/bin/ssr-subscriber /bin/ssr-subscriber
-#COPY ./config.yml /etc/ssr-subscriber.yml
 
+HEALTHCHECK --interval=60s --timeout=10s \
+	CMD curl -fs http://localhost/last-check || exit 1
+
+EXPOSE 80
 ENTRYPOINT ["/bin/ssr-subscriber", "--http"]
