@@ -1,30 +1,28 @@
-FROM golang:1.14.7-buster AS builder
+FROM golang:1.16 AS builder
 LABEL maintainer="Ming Chen"
 
 ENV PACKAGE github.com/mingcheng/ssr-subscriber
-ENV GOPROXY https://goproxy.cn,https://goproxy.io,direct
+ENV GOPROXY https://goproxy.cn,direct
 ENV BUILD_DIR ${GOPATH}/src/${PACKAGE}
 ENV TARGET_DIR ${BUILD_DIR}
 
-# Print go version
-RUN echo "GOROOT is ${GOROOT}"
-RUN echo "GOPATH is ${GOPATH}"
-
-# Build
 COPY . ${BUILD_DIR}
 WORKDIR ${BUILD_DIR}
-RUN make clean && \
-	make build && \
+RUN make clean && make build && \
   	mv ${TARGET_DIR}/ssr-subscriber /usr/bin/ssr-subscriber
 
 # Stage2
-#FROM alpine:3.11.6
-FROM centos:8
+FROM debian:buster
 
-# @from https://mirrors.ustc.edu.cn/help/alpine.html
-#RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+ENV TZ "Asia/Shanghai"
 
-RUN dnf install ca-certificates -y
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list \
+	&& sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list \
+	&& echo "Asia/Shanghai" > /etc/timezone \
+	&& apt -y update \
+	&& apt -y upgrade \
+	&& apt -y install ca-certificates openssl tzdata curl \
+	&& apt -y autoremove
 
 COPY --from=builder /usr/bin/ssr-subscriber /bin/ssr-subscriber
 
