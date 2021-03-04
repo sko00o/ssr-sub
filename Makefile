@@ -4,8 +4,11 @@ CGO_ENABLED=0
 
 all: build
 
-build: clean
+build: test clean
 	@go build -o ssr-subscriber ./cmd
+
+test: clean
+	@go test ./...
 
 clean:
 	@go clean ./...

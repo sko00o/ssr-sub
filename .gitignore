@@ -9,3 +9,4 @@ Thumbs.db
 /ssr-subscriber.yaml
 /*.exe
 /configs
+/test/*.txt
