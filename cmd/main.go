@@ -1,126 +1,125 @@
 package main
 
 import (
-  "flag"
-  "fmt"
-  "gopkg.in/yaml.v3"
-  "io/ioutil"
-  "log"
-  "os"
-  "time"
+	"flag"
+	"math/rand"
+	"net/http"
+	"os"
+	"syscall"
+	"time"
 
-  "github.com/kataras/iris/v12"
-  subscriber "github.com/mingcheng/ssr-subscriber"
+	"github.com/judwhite/go-svc"
+	iris "github.com/kataras/iris/v12"
+	subscriber "github.com/mingcheng/ssr-subscriber"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
-  configFile string
-  configure  = Configure{}
-
-  httpMode bool
-  err      error
-
-  // CheckedConfig to store checked configure
-  CheckedConfig []*subscriber.Config
-
-  // LastCheckTime mark last check time
-  LastCheckTime time.Time
+	BuildTime = "unknown"
+	Version   = "unknown"
 )
 
-// fetchAndCheck that fetch configs from subscriber url or file, then check its health
-func fetchAndCheck() ([]*subscriber.Config, error) {
-  // TODO sync.RWMutex{}
-  var (
-    configs []*subscriber.Config
-    err     error
-  )
+var (
+	configFile string
+	IrisApp    *iris.Application
+)
 
-  // do not bind listen address one-shot only
-  configs, err = fetchNodes(append(configure.URL, configure.File...))
-  if err != nil {
-    log.Printf("%v", err)
-  }
+type program struct {
+	Config  *Configure
+	Fetcher *subscriber.Fetcher
+}
 
-  configs, err = checkAndSaveConfigs(configs, configure.Check, configure.Output)
-  if err != nil {
-    log.Printf("%v", err)
-  }
+func (p *program) Init(_ svc.Environment) error {
+	// start fetch and check
+	p.Fetcher = &subscriber.Fetcher{
+		Output:      p.Config.Output,
+		Exceed:      time.Duration(p.Config.Exceed) * time.Hour * 24,
+		AutoClean:   p.Config.AutoClean,
+		Sources:     append(p.Config.File, p.Config.URL...),
+		CheckConfig: p.Config.Check,
+		Proxy:       p.Config.Proxy,
+		Interval:    time.Duration(p.Config.Interval) * time.Hour,
+	}
+	log.Trace(p.Fetcher)
 
-  if configure.AutoClean {
-    defer cleanExceedConfig(configure.Output, time.Duration(configure.Exceed)*(time.Hour*24))
-  }
+	return nil
+}
 
-  LastCheckTime = time.Now()
-  if len(configs) <= 0 && err != nil {
-    return nil, err
-  }
+func (p *program) Start() error {
+	if err := p.Fetcher.Start(); err != nil {
+		log.Error(err)
+		return err
+	}
 
-  return configs, err
+	IrisApp = iris.New()
+
+	IrisApp.Get("/random/{type:string}", func(ctx iris.Context) {
+		configs := p.Fetcher.AllConfigs()
+		log.Debugf("get all %d configs", len(configs))
+
+		if len(configs) == 0 {
+			ctx.StatusCode(http.StatusNotFound)
+			return
+		}
+
+		// initialize global pseudo random generator
+		rand.Seed(time.Now().Unix())
+		config := configs[rand.Intn(len(configs))]
+		log.Trace(config)
+
+		ctx.StatusCode(http.StatusOK)
+		switch ctx.Params().Get("type") {
+		case "yaml", "yml":
+			_, _ = ctx.YAML(config)
+		default:
+			_, _ = ctx.JSON(config)
+		}
+	})
+
+	IrisApp.Get("/all", func(ctx iris.Context) {
+		configs := p.Fetcher.AllConfigs()
+		log.Debugf("get all %d configs", len(configs))
+
+		ctx.StatusCode(http.StatusOK)
+		_, _ = ctx.JSON(configs)
+	})
+
+	IrisApp.Handle("GET", "/last-check-time", func(ctx iris.Context) {
+		_, _ = ctx.WriteString(p.Fetcher.LastCheckTime().String())
+	})
+
+	go IrisApp.Run(iris.Addr(p.Config.Bind))
+	return nil
+}
+
+func (p *program) Stop() error {
+	if err := p.Fetcher.Stop(); err != nil {
+		log.Error(err)
+		return err
+	}
+
+	return nil
 }
 
 func init() {
-  flag.StringVar(&configFile, "config", "/etc/ssr-subscriber.yml", "subscribe configure file")
-  flag.BoolVar(&httpMode, "http", false, "start http listen mode")
-
-  flag.Parse()
+	flag.StringVar(&configFile, "config", "/etc/ssr-subscriber.yml", "subscribe configure file")
+	flag.Usage = func() {
+		log.Printf("version v%s(%s)", Version, BuildTime)
+		os.Exit(0)
+	}
+	flag.Parse()
 }
 
 func main() {
-  // read configure from config file
-  if yamlFile, err := ioutil.ReadFile(configFile); err != nil {
-    log.Fatalln(err)
-  } else {
-    if err := yaml.Unmarshal(yamlFile, &configure); err != nil {
-      log.Fatalln(err)
-    }
-  }
+	// parse configure from local file
+	config, err := ParseConfig(configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-  fmt.Printf("%v", configure)
-
-  // check output directory
-  if stat, err := os.Stat(configure.Output); err != nil || !stat.IsDir() {
-    log.Fatal(err)
-  }
-
-  // start fetch and check
-  CheckedConfig, err = fetchAndCheck()
-  if err != nil && !httpMode {
-    log.Fatal(err)
-  }
-
-  if httpMode {
-    ticker := time.NewTicker(time.Duration(configure.Interval) * time.Hour)
-    go func() {
-      for {
-        select {
-        case <-ticker.C:
-          if CheckedConfig, err = fetchAndCheck(); err != nil {
-            _, _ = fmt.Fprint(os.Stderr, err.Error())
-          }
-        }
-      }
-    }()
-
-    // start web server
-    app := iris.New()
-
-    app.Handle("GET", "/", func(ctx iris.Context) {
-      ctx.Header("Last-Check", LastCheckTime.String())
-      if len(CheckedConfig) > 0 {
-        _, _ = ctx.JSON(CheckedConfig)
-      } else {
-        ctx.NotFound()
-      }
-    })
-
-    app.Handle("GET", "/config", func(ctx iris.Context) {
-      _, _ = ctx.JSON(configure)
-    })
-
-    app.Handle("GET", "/last-check", func(ctx iris.Context) {
-      _, _ = ctx.WriteString(LastCheckTime.String())
-    })
-
-    err = app.Run(iris.Addr(configure.Bind))
-  }
+	if err := svc.Run(&program{
+		Config: config,
+	}, syscall.SIGHUP, syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM); err != nil {
+		log.Fatal(err)
+	}
 }
