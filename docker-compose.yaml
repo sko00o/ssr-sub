@@ -1,0 +1,12 @@
+version: "3"
+services:
+  subscriber:
+    #    build: .
+    image: swr.cn-east-2.myhuaweicloud.com/mingcheng/ssr-subscriber:2.0.0
+    environment:
+      TZ: "Asia/Shanghai"
+    ports:
+      - 8080:80
+    volumes:
+      - ./configs:/configs:rw
+      - ./example.yml:/etc/ssr-subscriber.yml

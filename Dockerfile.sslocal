@@ -1,0 +1,12 @@
+FROM swr.cn-east-2.myhuaweicloud.com/mingcheng/ss-local:1.0.0
+
+COPY ./scripts/entrypoint.sh /entrypoint.sh
+COPY ./scripts/launcher.sh /launcher.sh
+
+RUN chmod +x /launcher.sh /entrypoint.sh
+
+HEALTHCHECK --interval=5m --timeout=30s \
+	CMD /launcher.sh check || exit 1
+
+EXPOSE 1086
+ENTRYPOINT ["/entrypoint.sh"]
