@@ -85,6 +85,7 @@ func (p *program) Start() error {
 	})
 
 	IrisApp.Handle("GET", "/last-check-time", func(ctx iris.Context) {
+		ctx.StatusCode(http.StatusOK)
 		_, _ = ctx.WriteString(p.Fetcher.LastCheckTime().String())
 	})
 
