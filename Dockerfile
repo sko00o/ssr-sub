@@ -26,8 +26,8 @@ RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.li
 
 COPY --from=builder /usr/bin/ssr-subscriber /bin/ssr-subscriber
 
-HEALTHCHECK --interval=60s --timeout=10s \
-	CMD curl -fs http://localhost/last-check || exit 1
+HEALTHCHECK --interval=60s --timeout=3s \
+	CMD curl -fs http://localhost/last-check-time || exit 1
 
 EXPOSE 80
-ENTRYPOINT ["/bin/ssr-subscriber", "--config", "/etc/ssr-subscriber.yml"]
+ENTRYPOINT ["/bin/ssr-subscriber", "-config", "/etc/ssr-subscriber.yml"]
