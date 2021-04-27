@@ -30,4 +30,4 @@ HEALTHCHECK --interval=60s --timeout=10s \
 	CMD curl -fs http://localhost/last-check || exit 1
 
 EXPOSE 80
-ENTRYPOINT ["/bin/ssr-subscriber", "--http"]
+ENTRYPOINT ["/bin/ssr-subscriber", "--config", "/etc/ssr-subscriber.yml"]
