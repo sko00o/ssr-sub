@@ -4,7 +4,7 @@
 # Author: Ming Cheng<mingcheng@outlook.com>
 #
 # Created Date: Thursday, August 8th 2019, 3:32:38 pm
-# Last Modified: Tuesday, April 27th 2021, 6:48:08 pm
+# Last Modified: Tuesday, April 27th 2021, 7:40:19 pm
 #
 # http://www.opensource.org/licenses/MIT
 ###
@@ -29,7 +29,7 @@ start_ssr() {
 
   curl -sSkL -o $SSR_CONF_FILE $SSR_SUBSCRIBER
   cat $SSR_CONF_FILE
-  ss-local $SSR_OPT -v -c $SSR_CONF_FILE -l 1086 -f $SSR_PID_FILE &
+  ss-local $SSR_OPT -v -c $SSR_CONF_FILE -l 1086 -b 0.0.0.0 -f $SSR_PID_FILE &
 
   while true; do
     sleep 600
