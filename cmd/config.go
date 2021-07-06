@@ -1,25 +1,21 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
-	"os"
 
-	"github.com/mingcheng/ssr-subscriber"
+	"github.com/mingcheng/ssr-subscriber/node"
 	"gopkg.in/yaml.v3"
 )
 
 // Configure struct, for more information see config-example.yaml file
 type Configure struct {
-	URL       []string               `yaml:"url"`
-	File      []string               `yaml:"file"`
-	Output    string                 `yaml:"output"`
-	Proxy     string                 `yaml:"proxy"`
-	Check     subscriber.CheckConfig `yaml:"check"`
-	Interval  int                    `yaml:"update_interval"`
-	Bind      string                 `yaml:"bind"`
-	AutoClean bool                   `yaml:"auto_clean"`
-	Exceed    uint                   `yaml:"config_exceed"`
+	URL       []string         `yaml:"url"`
+	File      []string         `yaml:"file"`
+	Proxy     string           `yaml:"proxy"`
+	Check     node.CheckConfig `yaml:"check"`
+	Interval  int              `yaml:"interval"`
+	Bind      string           `yaml:"bind"`
+	RedisAddr string           `yaml:"redis"`
 }
 
 // ParseConfig to parse config via local filepath
@@ -32,13 +28,9 @@ func ParseConfig(configPath string) (*Configure, error) {
 		return nil, err
 	}
 
-	if err := yaml.Unmarshal(data, &configure); err != nil {
+	err = yaml.Unmarshal(data, &configure)
+	if err != nil {
 		return nil, err
-	}
-
-	// check output directory
-	if stat, err := os.Stat(configure.Output); err != nil || !stat.IsDir() {
-		return nil, fmt.Errorf("%s is not directory or not wirtable", configure.Output)
 	}
 
 	return &configure, err

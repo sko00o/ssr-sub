@@ -8,7 +8,7 @@ ENV TARGET_DIR ${BUILD_DIR}
 
 COPY . ${BUILD_DIR}
 WORKDIR ${BUILD_DIR}
-RUN make clean && make build && \
+RUN make build && \
   	mv ${TARGET_DIR}/ssr-subscriber /usr/bin/ssr-subscriber
 
 # Stage2

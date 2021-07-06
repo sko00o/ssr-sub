@@ -16,16 +16,17 @@ steps:
   - name: build
     image: golang:1.16
     environment:
-      GOPROXY: "https://goproxy.cn,direct"
+      GOPROXY: https://goproxy.cn,direct
+      REDIS_SERVER: redis:6379
     commands:
-      - make build
+      - make test
 
-  - name: publish-subscriber-image
+  - name: publish-image
     image: plugins/docker
     environment:
       GITEA_TOKEN:
         from_secret: gitea_token
-      GOPROXY: "https://goproxy.cn,direct"
+      GOPROXY: https://goproxy.cn,direct
     when:
       branch: master
       event: push
@@ -41,27 +42,8 @@ steps:
       dockerfile: Dockerfile
       tags:
         - latest
-        - 2.0.0
+        - 3.0.0
 
-  - name: publish-sslocal-image
-    image: plugins/docker
-    environment:
-      GITEA_TOKEN:
-        from_secret: gitea_token
-      GOPROXY: "https://goproxy.cn,direct"
-    when:
-      branch: master
-      event: push
-    settings:
-      registry: swr.cn-east-2.myhuaweicloud.com
-      repo: swr.cn-east-2.myhuaweicloud.com/mingcheng/ssr-sslocal-single
-      username:
-        from_secret: docker_username
-      password:
-        from_secret: docker_password
-      build_args_from_env:
-        - GITEA_TOKEN
-      dockerfile: Dockerfile.sslocal
-      tags:
-        - latest
-        - 1.0.0
+services:
+  - name: redis
+    image: redis

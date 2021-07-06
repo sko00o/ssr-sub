@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"math/rand"
 	"net/http"
@@ -8,9 +9,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/judwhite/go-svc"
 	iris "github.com/kataras/iris/v12"
-	subscriber "github.com/mingcheng/ssr-subscriber"
+	"github.com/mingcheng/ssr-subscriber/node"
+	"github.com/mingcheng/ssr-subscriber/subscriber"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,28 +28,44 @@ var (
 )
 
 type program struct {
-	Config  *Configure
-	Fetcher *subscriber.Fetcher
+	Config      *Configure
+	Fetcher     *subscriber.Fetcher
+	Subscriber  *subscriber.Subscriber
+	RedisClient *redis.Client
 }
 
 func (p *program) Init(_ svc.Environment) error {
+
+	if p.Config.RedisAddr != "" {
+		p.RedisClient = redis.NewClient(&redis.Options{
+			Addr: p.Config.RedisAddr,
+		})
+	} else {
+		log.Warn("redis address is not configured")
+	}
+
 	// start fetch and check
 	p.Fetcher = &subscriber.Fetcher{
-		Output:      p.Config.Output,
-		Exceed:      time.Duration(p.Config.Exceed) * time.Hour * 24,
-		AutoClean:   p.Config.AutoClean,
-		Sources:     append(p.Config.File, p.Config.URL...),
 		CheckConfig: p.Config.Check,
 		Proxy:       p.Config.Proxy,
-		Interval:    time.Duration(p.Config.Interval) * time.Hour,
+		RedisClient: p.RedisClient,
 	}
-	log.Trace(p.Fetcher)
+
+	if err := p.Fetcher.Init(); err != nil {
+		return err
+	}
+
+	p.Subscriber = &subscriber.Subscriber{
+		Fetcher:  p.Fetcher,
+		Sources:  append(p.Config.File, p.Config.URL...),
+		Interval: time.Duration(p.Config.Interval) * time.Minute,
+	}
 
 	return nil
 }
 
 func (p *program) Start() error {
-	if err := p.Fetcher.Start(); err != nil {
+	if err := p.Subscriber.Start(); err != nil {
 		log.Error(err)
 		return err
 	}
@@ -54,8 +73,12 @@ func (p *program) Start() error {
 	IrisApp = iris.New()
 
 	IrisApp.Get("/random/{type:string}", func(ctx iris.Context) {
-		configs := p.Fetcher.AllConfigs()
-		log.Debugf("get all %d configs", len(configs))
+		var configs []node.Config
+		log.Debugf("get all %d configs", len(p.Fetcher.Configs))
+
+		for _, v := range p.Fetcher.Configs {
+			configs = append(configs, v)
+		}
 
 		if len(configs) == 0 {
 			ctx.StatusCode(http.StatusNotFound)
@@ -77,16 +100,13 @@ func (p *program) Start() error {
 	})
 
 	IrisApp.Get("/all", func(ctx iris.Context) {
-		configs := p.Fetcher.AllConfigs()
-		log.Debugf("get all %d configs", len(configs))
-
 		ctx.StatusCode(http.StatusOK)
-		_, _ = ctx.JSON(configs)
+		_, _ = ctx.JSON(p.Fetcher.Configs)
 	})
 
 	IrisApp.Handle("GET", "/last-check-time", func(ctx iris.Context) {
 		ctx.StatusCode(http.StatusOK)
-		_, _ = ctx.WriteString(p.Fetcher.LastCheckTime().String())
+		_, _ = ctx.WriteString(p.Subscriber.FetchTimestamp.String())
 	})
 
 	go IrisApp.Run(iris.Addr(p.Config.Bind))
@@ -94,9 +114,15 @@ func (p *program) Start() error {
 }
 
 func (p *program) Stop() error {
-	if err := p.Fetcher.Stop(); err != nil {
+	if err := p.Subscriber.Stop(context.Background()); err != nil {
 		log.Error(err)
 		return err
+	}
+
+	if p.RedisClient != nil {
+		if err := p.RedisClient.Close(); err != nil {
+			return err
+		}
 	}
 
 	return nil
