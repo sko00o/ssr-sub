@@ -1,8 +1,8 @@
 version: "3"
 services:
   subscriber:
-    #    build: .
-    image: swr.cn-east-2.myhuaweicloud.com/mingcheng/ssr-subscriber:2.0.0
+    build: .
+    image: swr.cn-east-2.myhuaweicloud.com/mingcheng/ssr-subscriber:3.0.0
     environment:
       TZ: "Asia/Shanghai"
     ports:
