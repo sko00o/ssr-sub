@@ -1,0 +1,11 @@
+[Unit]
+Description=Update ss-local configures from ssr-subscriber
+Requires=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${PATH}/ssr-subscribe --config ${HOME}/ssr-subscriber.yaml --http
+User=${USER}
+
+[Install]
+WantedBy=network-online.target

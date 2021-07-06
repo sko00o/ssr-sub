@@ -1,0 +1,12 @@
+/*.txt
+.idea
+Thumbs.db
+.DS*
+*.pb.go
+/*.json
+/config.yml
+/json
+/ssr-subscriber.yaml
+/*.exe
+/configs
+/test/*.txt

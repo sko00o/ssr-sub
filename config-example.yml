@@ -1,0 +1,16 @@
+url:
+  - <your-ssr-subscriber-url>
+
+file:
+  - <you-local-ssr-subscriber-file-base64-encoded>
+
+check:
+  timeout: 3s
+  not: 免费|普通|回国|过期|剩余
+
+output: <output-directory>
+
+bind: 0.0.0.0:8989
+update_interval: 12 #hours
+auto_clean: true
+config_exceed: 7 #days

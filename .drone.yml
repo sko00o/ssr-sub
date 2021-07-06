@@ -1,0 +1,49 @@
+###
+# File: .drone.yaml
+# Author: Ming Cheng<mingcheng@outlook.com>
+#
+# Created Date: Thursday, September 17th 2020, 7:16:54 pm
+# Last Modified: Tuesday, April 27th 2021, 7:03:06 pm
+#
+# http://www.opensource.org/licenses/MIT
+###
+
+kind: pipeline
+name: default
+type: docker
+
+steps:
+  - name: build
+    image: golang:1.16
+    environment:
+      GOPROXY: https://goproxy.cn,direct
+      REDIS_SERVER: redis:6379
+    commands:
+      - make test
+
+  - name: publish-image
+    image: plugins/docker
+    environment:
+      GITEA_TOKEN:
+        from_secret: gitea_token
+      GOPROXY: https://goproxy.cn,direct
+    when:
+      branch: master
+      event: push
+    settings:
+      registry: swr.cn-east-2.myhuaweicloud.com
+      repo: swr.cn-east-2.myhuaweicloud.com/mingcheng/ssr-subscriber
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      build_args_from_env:
+        - GITEA_TOKEN
+      dockerfile: Dockerfile
+      tags:
+        - latest
+        - 3.0.0
+
+services:
+  - name: redis
+    image: redis
